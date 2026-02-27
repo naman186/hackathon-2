@@ -14,7 +14,7 @@ A modern, web-based interface that leverages machine learning to classify images
 
 * **Frontend:** HTML5, CSS3 (Custom Variables & Flexbox)
 * **Machine Learning:** [TensorFlow.js](https://www.tensorflow.org/js)
-* **Model Source:** [Teachable Machine by Google](https://teachablemachine.withgoogle.com/)
+
 
 ## 📂 Project Structure
 
