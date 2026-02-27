@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local AI Classifier</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <style>
+        :root {
+            --primary: #00f2fe;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        h1 { margin-bottom: 1.5rem; font-weight: 300; letter-spacing: 1px; }
+
+        #webcam-container {
+            margin: 20px auto;
+            border: 4px solid var(--primary);
+            border-radius: 12px;
+            overflow: hidden;
+            width: 200px;
+            height: 200px;
+            background: #000;
+        }
+
+        #label-container {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .prediction-item {
+            background: rgba(255,255,255,0.05);
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--primary);
+        }
+
+        .prob-bar {
+            height: 8px;
+            background: var(--primary);
+            border-radius: 4px;
+            transition: width 0.2s ease;
+        }
+
+        button {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        button:hover { transform: scale(1.05); opacity: 0.9; }
+        button:disabled { background: #64748b; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>AI Vision</h1>
+        <button type="button" id="start-btn" onclick="init()">Initialize Camera</button>
+        <button type="button" id="nav-btn" onclick="location.href='text-to-sign.html'" style="background: transparent; border: 2px solid var(--primary); color: var(--primary); margin-top: 10px;">Text to Sign</button>
+        
+        <div id="webcam-container"></div>
+        
+        <div id="label-container">
+            </div>
+    </div>
+
+    <script type="text/javascript">
+        // Using local path. Change to your Cloud URL if preferred.
+        const URL = "https://teachablemachine.withgoogle.com/models/5XrSDz-mR/"; 
+
+        let model, webcam, labelContainer, maxPredictions;
+
+        async function init() {
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('start-btn').innerText = "Loading Model...";
+
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            try {
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+
+                const flip = true; 
+                webcam = new tmImage.Webcam(200, 200, flip); 
+                await webcam.setup(); 
+                await webcam.play();
+                window.requestAnimationFrame(loop);
+
+                document.getElementById("webcam-container").appendChild(webcam.canvas);
+                labelContainer = document.getElementById("label-container");
+                
+                // Create placeholders for labels
+                for (let i = 0; i < maxPredictions; i++) {
+                    const div = document.createElement("div");
+                    div.className = "prediction-item";
+                    labelContainer.appendChild(div);
+                }
+                
+                document.getElementById('start-btn').style.display = "none";
+            } catch (e) {
+                alert("Error loading model. Ensure you are using a 'Live Server' and your files are in the 'my_model' folder.");
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('start-btn').innerText = "Retry";
+            }
+        }
+
+        async function loop() {
+            webcam.update();
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+    const prediction = await model.predict(webcam.canvas);
+
+    let highestIndex = 0;
+    let highestValue = 0;
+
+    // Find highest probability
+    for (let i = 0; i < maxPredictions; i++) {
+        if (prediction[i].probability > highestValue) {
+            highestValue = prediction[i].probability;
+            highestIndex = i;
+        }
+    }
+
+    for (let i = 0; i < maxPredictions; i++) {
+        const name = prediction[i].className;
+        const value = (prediction[i].probability * 100).toFixed(0);
+
+        const shouldHighlight =
+            i === highestIndex && prediction[i].probability > 0.8;
+
+        labelContainer.childNodes[i].innerHTML = `
+            <span style="
+                font-weight: ${shouldHighlight ? 'bold' : 'normal'};
+                color: ${shouldHighlight ? '#22c55e' : 'inherit'};
+            ">
+                ${name}
+            </span>
+            <span style="
+                font-weight: ${shouldHighlight ? 'bold' : 'normal'};
+                color: ${shouldHighlight ? '#22c55e' : 'inherit'};
+            ">
+                ${value}%
+            </span>
+        `;
+    }
+}
+    </script>
+</body>
+</html>
